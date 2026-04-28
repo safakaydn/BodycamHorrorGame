@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InteractionComponent.h"
 #include "GameFramework/Character.h"
 #include "BodycamCharacter.generated.h"
 
@@ -45,87 +46,17 @@ protected:
 	//Input handlers
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Interact(const FInputActionValue& Value);
 
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob")
-	float BobIntensity = 0.7f;              // cm up/down when moving
 
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob")
-	float BobFrequency = 4.5f;              // how fast the bob oscillates
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob")
-	float CrouchBobScale = 0.65f;           // bob reduced while crouched
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob")
-	float SprintBobScale = 1.4f;            // bob amplified at high speed
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob")
-	float BobHorizontal = 0.25f; // Y cm (side sway)
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob") 
-	float BobForward   = 0.35f; // X cm (forward surge)
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob") 
-	float BobPitchDeg  = 0.4f;  // camera nod in degrees
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Breathing")
-	float BreathIntensity = 0.25f;          // cm idle breathing
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Breathing")
-	float BreathXYIntensity = 0.25f;          // cm idle breathing
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Headbob") 
-	float BreathPitchDeg  = 0.4f;  // camera nod in degrees
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Breathing")
-	float BreathFrequency = 1.1f;           // Hz-ish
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Breathing")
-	float BreathRollDeg = 0.25f;          // slight roll with breathing
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Breathing")
-	float BreathNoiseSpeed = 0.9f;
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Roll")
-	float StrafeRollDeg = 2.0f;             // max roll when strafing
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Roll")
-	float RollInterpSpeed = 6.0f;           // smoothing
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Landing")
-	float LandingKick = 3.0f;               // cm downward kick on land
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Landing")
-	float LandingDamp = 12.0f;              // how fast the kick fades
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Landing") 
-	float JumpKickUp = 2.0f; // cm
-
-	UPROPERTY(EditAnywhere, Category="Bodycam|Landing") 
-	float JumpDamp   = 10.0f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Bodycam", meta=(AllowPrivateAccess="true"))
+	class UBodycamShakeComponent* BodycamShake = nullptr;
 	
-	float JumpOffset = 0.f;
-
-	// runtime
-	float BobTime = 0.f;
-	float BreathTime = 0.f;
-	float LandingOffset = 0.f;              // positive = push camera down
-	bool  bWasGrounded = true;
-	FVector PivotBaseRelLoc = FVector::ZeroVector;
-
-	// helper
-	void UpdateBodycamPOV(float DeltaSeconds);
-
-	// seeds (initialized once so each pawn drifts differently)
-	float BreathSeedX = 0.f, BreathSeedY = 0.f, BreathSeedZ = 0.f, BreathSeedPitch = 0.f, BreathSeedRoll = 0.f;
-
-
-
-
 	/*FLASHLIGHT AND SPRINTING IMPLEMENTATIONS*/
 
 
@@ -135,6 +66,14 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	class UInputAction* FlashlightAction = nullptr;
+
+	// The Input Action you select in the Editor (IA_Interact)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta=(AllowPrivateAccess="true"))
+	class UInputAction* InteractAction;
+
+	// The Component that does the raycasting
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction", meta=(AllowPrivateAccess="true"))
+	class UInteractionComponent* InteractionComp;
 
 	// ===== Sprint =====
 	UPROPERTY(EditAnywhere, Category="Movement|Sprint")

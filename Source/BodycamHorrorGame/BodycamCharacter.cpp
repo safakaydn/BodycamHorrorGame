@@ -9,6 +9,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Components/SpotLightComponent.h"
+#include "BodycamShakeComponent.h"
 
 // Sets default values
 ABodycamCharacter::ABodycamCharacter()
@@ -46,6 +47,10 @@ ABodycamCharacter::ABodycamCharacter()
 	Flashlight->bUseInverseSquaredFalloff = false; // more "gamey" falloff
 	Flashlight->SetVisibility(false);
 
+
+	InteractionComp = CreateDefaultSubobject<UInteractionComponent>(TEXT("InteractionComp"));
+	BodycamShake = CreateDefaultSubobject<UBodycamShakeComponent>(TEXT("BodycamShake"));
+
 	// Default walk speed
 	GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 }
@@ -67,17 +72,11 @@ void ABodycamCharacter::BeginPlay()
 		}
 	}
 
-	if (FPCameraPivot)
-    {
-        PivotBaseRelLoc = FPCameraPivot->GetRelativeLocation();
-		FRandomStream RS;
-    	RS.Initialize(GetUniqueID()); // deterministic per pawn
-    	BreathSeedX     = RS.FRandRange(-1000.f, 1000.f);
-    	BreathSeedY     = RS.FRandRange(-1000.f, 1000.f);
-    	BreathSeedZ     = RS.FRandRange(-1000.f, 1000.f);
-    	BreathSeedPitch = RS.FRandRange(-1000.f, 1000.f);
-    	BreathSeedRoll  = RS.FRandRange(-1000.f, 1000.f);
-    }
+	// Hand the camera pivot to the shake component so it knows what to animate.
+	if (BodycamShake && FPCameraPivot)
+	{
+		BodycamShake->InitializeForPivot(FPCameraPivot);
+	}
 
 
 	
@@ -87,7 +86,6 @@ void ABodycamCharacter::BeginPlay()
 void ABodycamCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	UpdateBodycamPOV(DeltaTime);
 
 	// --- FLASHLIGHT: movement sway & jump/land impulses ---
 	UCharacterMovementComponent* Move = GetCharacterMovement();
@@ -110,7 +108,7 @@ void ABodycamCharacter::Tick(float DeltaTime)
 	const float sprintScale = bIsSprinting ? FlashSprintSwayScale : 1.f;
 
 	// target sway from movement + a touch of bob tied to your BobTime
-	const float phase = BobTime * 2.f * PI;
+	const float phase = (BodycamShake ? BodycamShake->GetBobTime() : 0.f) * 2.f * PI;
 	const float targetMoveYaw   = (strafeNorm * FlashMoveYawByStrafe   * SpeedAlpha * sprintScale)
 								+ (FMath::Sin(phase * 0.5f) * FlashBobYaw   * SpeedAlpha);
 	const float targetMovePitch = (-fwdNorm   * FlashMovePitchBySpeed  * SpeedAlpha * sprintScale) // dip when moving fast
@@ -159,92 +157,6 @@ void ABodycamCharacter::Tick(float DeltaTime)
 	}
 }
 
-void ABodycamCharacter::UpdateBodycamPOV(float DeltaSeconds)
-{
-	if (!FPCameraPivot) return;
-
-	UCharacterMovementComponent* Move = GetCharacterMovement();
-	const bool bGrounded = Move ? Move->IsMovingOnGround() : true;
-
-	const FVector Vel = GetVelocity();
-	const float  Speed2D = FVector(Vel.X, Vel.Y, 0.f).Size();
-
-	// --- Breathing (noise-based, non-circular) ---
-	BreathTime += DeltaSeconds;                  // keep our own time; scale below
-	const float t = BreathTime * BreathNoiseSpeed;
-
-	// Perlin noise in [-1,1] per channel
-	const float nx = FMath::PerlinNoise1D(t * 0.87f + BreathSeedX);
-	const float ny = FMath::PerlinNoise1D(t * 1.03f + BreathSeedY);
-	const float nz = FMath::PerlinNoise1D(t * 1.19f + BreathSeedZ);
-	const float np = FMath::PerlinNoise1D(t * 0.77f + BreathSeedPitch);
-	const float nr = FMath::PerlinNoise1D(t * 0.93f + BreathSeedRoll);
-
-	// reduce breathing while moving so it doesn't fight the bob
-	float MoveAlpha = 0.f;
-	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-	{
-	    const float MaxSpd = FMath::Max(1.f, MoveComp->MaxWalkSpeed);
-	    MoveAlpha = FMath::Clamp(GetVelocity().Size2D() / MaxSpd, 0.f, 1.f);
-	}
-	const float BreathMoveScale = 1.f - 0.6f * MoveAlpha; // keep ~40% at full sprint
-
-	// final breathing offsets
-	const float BreathX       = nx * BreathXYIntensity * BreathMoveScale;
-	const float BreathY       = ny * BreathXYIntensity * BreathMoveScale;
-	const float BreathZ       = nz * BreathIntensity    * BreathMoveScale;
-	const float BreathPitch   = np * BreathPitchDeg     * BreathMoveScale;
-	const float BreathRoll    = nr * BreathRollDeg      * BreathMoveScale;
-
-	// ---------- Bob amplitude shaping ----------
-	float Scale = 0.f;
-	if (bGrounded && Speed2D > 10.f)
-	{
-		const float SpeedNorm = Move ? FMath::Clamp(Speed2D / FMath::Max(1.f, Move->MaxWalkSpeed), 0.f, 2.f) : 0.f;
-		Scale = FMath::Lerp(1.0f, SprintBobScale, FMath::Clamp(SpeedNorm - 0.5f, 0.f, 1.f));
-		if (Move && Move->IsCrouching()) Scale *= CrouchBobScale;
-
-		BobTime += DeltaSeconds * BobFrequency;
-	}
-	else
-	{
-		BobTime = 0.f;
-	}
-
-	// ---------- Landing kick ----------
-	if (bWasGrounded && !bGrounded) JumpOffset = JumpKickUp;          // takeoff bump up
-	if (!bWasGrounded && bGrounded) LandingOffset = LandingKick;      // landing dip
-
-	bWasGrounded  = bGrounded;
-
-	// decay both
-	LandingOffset = FMath::FInterpTo(LandingOffset, 0.f, DeltaSeconds, LandingDamp);
-	JumpOffset    = FMath::FInterpTo(JumpOffset,    0.f, DeltaSeconds, JumpDamp);
-
-	// ---------- Bob offsets (X/Y/Z) ----------
-	const float Phase = BobTime * 2.f * PI;
-	const float OffZ  = (bGrounded ? FMath::Sin(Phase)        * (BobIntensity * Scale)         : 0.f);
-	const float OffY  = (bGrounded ? FMath::Sin(Phase * 0.5f) * (BobHorizontal * Scale)        : 0.f);
-	const float OffX  = (bGrounded ? -FMath::Cos(Phase)       * (BobForward   * Scale)         : 0.f);
-
-
-	// ---------- Apply ONE location update (X/Y/Z together) ----------
-	const FVector TargetRel = PivotBaseRelLoc + FVector(OffX + BreathX, OffY + BreathY, BreathZ + OffZ - LandingOffset + JumpOffset);
-	FVector CurRel = FPCameraPivot->GetRelativeLocation();
-	CurRel = FMath::VInterpTo(CurRel, TargetRel, DeltaSeconds, 10.f);
-	FPCameraPivot->SetRelativeLocation(CurRel);
-
-	// ---------- Rotation: strafe roll + bob nod + breathing ----------
-	const float Lateral     = FVector::DotProduct(Vel.GetSafeNormal2D(), GetActorRightVector()); // -1..1
-	const float TargetRoll  = (Lateral * StrafeRollDeg) + BreathRoll;                            // add noise roll
-	const float TargetPitch = FMath::Sin(Phase + PI * 0.5f) * (BobPitchDeg * Scale) + BreathPitch;
-
-	FRotator R = FPCameraPivot->GetRelativeRotation();
-	R.Roll  = FMath::FInterpTo(R.Roll,  TargetRoll,  DeltaSeconds, RollInterpSpeed);
-	R.Pitch = FMath::FInterpTo(R.Pitch, TargetPitch, DeltaSeconds, 6.f);
-	R.Yaw   = 0.f;
-	FPCameraPivot->SetRelativeRotation(R);
-}
 
 // Called to bind functionality to input
 void ABodycamCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -275,6 +187,12 @@ void ABodycamCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	if (FlashlightAction)
 	{
 		EIC->BindAction(FlashlightAction, ETriggerEvent::Started, this, &ABodycamCharacter::ToggleFlashlight);
+	}
+
+	// Interact
+	if (InteractAction)
+	{
+		EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &ABodycamCharacter::Interact);
 	}
 }
 
@@ -351,4 +269,15 @@ void ABodycamCharacter::StopSprint(const FInputActionValue& /*Value*/)
 void ABodycamCharacter::ToggleFlashlight(const FInputActionValue& /*Value*/)
 {
 	if (Flashlight) Flashlight->ToggleVisibility(true);
+}
+
+
+
+void ABodycamCharacter::Interact(const FInputActionValue& Value)
+{
+    // Tell the component to fire the raycast
+    if (InteractionComp)
+    {
+        InteractionComp->FireInteraction();
+    }
 }

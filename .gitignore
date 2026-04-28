@@ -1,10 +1,47 @@
+# === Unreal Engine generated / build artifacts ===
 Binaries/
 DerivedDataCache/
 Intermediate/
 Saved/
+
+# Plugin equivalents (nested under Plugins/)
+**/Plugins/**/Binaries/
+**/Plugins/**/Intermediate/
+
+# === Third-party / Marketplace / Fab assets (re-downloadable, not redistributable) ===
+Content/Fab/
+Content/MC_Doors/
+
+# === Throwaway Blueprints (uncomment if you decide to ignore specific ones) ===
+# Content/BP/BP_GeminiCinematicDoor.uasset
+# Content/BP/BP_SampleDoor.uasset
+# Content/BP/BP_TestAnimatedDoor.uasset
+
+# === Visual Studio ===
 .vs/
-.vscode/
-*.VC.db
 *.sln
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.VC.VC.opendb
+
+# === VS Code ===
+.vscode/
+
+# === Rider / JetBrains ===
+.idea/
+
+# === macOS / Xcode (in case anyone clones on Mac) ===
+*.xcodeproj
+*.xcworkspace
 .DS_Store
+
+# === Windows ===
 Thumbs.db
+Desktop.ini
+
+# === Misc ===
+*.tmp
+*~

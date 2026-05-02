@@ -11,25 +11,36 @@ UFlashlightComponent::UFlashlightComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
-	// Create the visible spotlight as a child of this component.
-	// Doing it here (in the constructor) means it's set up as part of the
-	// component's default subobjects, visible in the editor's component tree.
+	// Create the spotlight as a default subobject. We don't attach it here —
+	// attachment is finalized in OnRegister to ensure the parent (this component)
+	// is fully registered with the world before the spotlight latches onto it.
 	Spotlight = CreateDefaultSubobject<USpotLightComponent>(TEXT("Spotlight"));
-	Spotlight->SetupAttachment(this);
 
-	// Small forward+side offset so the cone doesn't clip into the camera.
-	// Same values as the original character setup.
-	Spotlight->SetRelativeLocation(FVector(10.f, 8.f, 0.f));
-	Spotlight->SetRelativeRotation(FRotator::ZeroRotator);
+	if (Spotlight)
+	{
+		Spotlight->SetRelativeLocation(FVector(10.f, 8.f, 0.f));
+		Spotlight->SetRelativeRotation(FRotator::ZeroRotator);
+		Spotlight->Intensity = Intensity;
+		Spotlight->InnerConeAngle = InnerConeAngle;
+		Spotlight->OuterConeAngle = OuterConeAngle;
+		Spotlight->AttenuationRadius = AttenuationRadius;
+		Spotlight->bUseInverseSquaredFalloff = bUseInverseSquaredFalloff;
+		Spotlight->SetVisibility(false);
+	}
+}
 
-	// Default light parameters; can be tweaked per-instance in the editor
-	// because they're driven by UPROPERTYs on this component.
-	Spotlight->Intensity = Intensity;
-	Spotlight->InnerConeAngle = InnerConeAngle;
-	Spotlight->OuterConeAngle = OuterConeAngle;
-	Spotlight->AttenuationRadius = AttenuationRadius;
-	Spotlight->bUseInverseSquaredFalloff = bUseInverseSquaredFalloff;
-	Spotlight->SetVisibility(false); // Off by default; BeginPlay applies bStartLightOn
+void UFlashlightComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	// Now that this component is registered with the world, attach the spotlight
+	// as a child. Doing it here (rather than in the constructor) avoids a UE5
+	// quirk where nested subobject attachments on Blueprint-spawned components
+	// can be silently dropped, leaving the child unparented at runtime.
+	if (Spotlight && Spotlight->GetAttachParent() != this)
+	{
+		Spotlight->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
+	}
 }
 
 void UFlashlightComponent::BeginPlay()
@@ -148,7 +159,6 @@ void UFlashlightComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 	// original character code's behavior.
 	const FRotator Target(-TotalPitch, TotalYaw, 0.f);
 
-	// Smooth the visible rotation, separately on each axis. Roll stays at zero.
 	FRotator Cur = GetRelativeRotation();
 	Cur.Pitch = FMath::FInterpTo(Cur.Pitch, Target.Pitch, DeltaTime, AimSmoothing);
 	Cur.Yaw   = FMath::FInterpTo(Cur.Yaw,   Target.Yaw,   DeltaTime, AimSmoothing);

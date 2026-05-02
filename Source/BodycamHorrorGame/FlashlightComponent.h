@@ -32,6 +32,7 @@ class BODYCAMHORRORGAME_API UFlashlightComponent : public USceneComponent
 public:
 	UFlashlightComponent();
 
+	virtual void OnRegister() override;
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 

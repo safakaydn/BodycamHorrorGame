@@ -10,10 +10,8 @@ cinematic cutscenes between gameplay segments.
 
 ## Premise
 
-[ONE SHORT PARAGRAPH ABOUT THE STORY/MOOD — write whatever you have so far,
-even if it's vague. Example: "The player alternates between two perspectives
-— a policeman and a child — across a single tense night..." Edit this to
-match your actual vision. It's okay if it changes as the project evolves.]
+"The player alternates between two perspectives
+— a policeman and a child — across a single tense night..." 
 
 ## Key design pillars
 

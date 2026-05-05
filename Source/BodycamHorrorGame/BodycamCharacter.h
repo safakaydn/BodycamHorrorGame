@@ -62,6 +62,18 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Bodycam", meta=(AllowPrivateAccess="true"))
 	class UAimOffsetComponent* AimOffset = nullptr;
+
+	// ===== Pistol =====
+	// Visual pistol mesh — the thing the player sees in their view.
+	// Attached to the camera in the constructor. Hidden by default until
+	// scenario or pickup logic shows it.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Pistol", meta=(AllowPrivateAccess="true"))
+	class USkeletalMeshComponent* PistolMesh = nullptr;
+
+	// Pistol gameplay logic — ammo, fire rate, equip/holster state.
+	// Doesn't own the mesh; orchestrates it.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Pistol", meta=(AllowPrivateAccess="true"))
+	class UPistolComponent* Pistol = nullptr;
 	
 	/*INPUT, SPRINT, FOV*/
 

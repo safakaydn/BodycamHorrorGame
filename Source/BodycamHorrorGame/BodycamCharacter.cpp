@@ -11,6 +11,9 @@
 #include "BodycamShakeComponent.h"
 #include "FlashlightComponent.h"
 #include "AimOffsetComponent.h"
+#include "PistolComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "UObject/ConstructorHelpers.h"
 
 // Sets default values
 ABodycamCharacter::ABodycamCharacter()
@@ -45,6 +48,26 @@ ABodycamCharacter::ABodycamCharacter()
 	// the player's view, then the component manages the spotlight itself.
 	Flashlight = CreateDefaultSubobject<UFlashlightComponent>(TEXT("Flashlight"));
 	Flashlight->SetupAttachment(FPCamera);
+
+	// Pistol gameplay logic — pure logic component, no transform.
+	Pistol = CreateDefaultSubobject<UPistolComponent>(TEXT("Pistol"));
+
+	// Pistol visual mesh — attached to the camera so it follows view.
+	// Starting position is a guess; will tune in the editor once we see it.
+	PistolMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("PistolMesh"));
+	PistolMesh->SetupAttachment(FPCamera);
+	PistolMesh->SetRelativeLocation(FVector(30.f, 12.f, -10.f));
+	PistolMesh->SetRelativeRotation(FRotator::ZeroRotator);
+	PistolMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// Pre-load the pistol mesh asset so it shows up by default without
+	// needing to be set per-instance in the Blueprint editor.
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> PistolMeshAsset(
+		TEXT("/Game/BP/Pistol/SK_Pistol.SK_Pistol"));
+	if (PistolMeshAsset.Succeeded())
+	{
+		PistolMesh->SetSkeletalMeshAsset(PistolMeshAsset.Object);
+	}
 
 	// Default walk speed
 	GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
